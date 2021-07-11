@@ -18,7 +18,7 @@ BLUE    = Fore.BLUE
 YELLOW  = Fore.YELLOW
 MAGENTA  = Fore.MAGENTA
 
-user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36" # Why not
 
 payloads = [
     "__proto__[property]=value",
@@ -55,7 +55,7 @@ def qs_replace(url, val):
 
 
 async def close_dialog(dialog):
-    sys.stdout.write(f"{MAGENTA}[!] A dialog recieved: \"{dialog.message}\" {RESET}\n")
+    sys.stdout.write(f"{MAGENTA}[!] A dialog received: \"{dialog.message}\" {RESET}\n")
     await dialog.dismiss()
     
 
@@ -89,12 +89,15 @@ async def do_req(page, url, payload):
 
 async def main(urls,c):
     tasks = []
-    browser = await launch()
+    browser = await launch({
+        "ignoreHTTPSErrors": True,
+        "args": ["--ignore-certificate-errors"],
+        "headless" : True
+}
+)
     page = await browser.newPage()
     page.on('dialog', lambda dialog: asyncio.ensure_future(close_dialog(dialog)))
-
     await page.setUserAgent(user_agent); # not needed but why not
-    print(urls)
     for url in urls:
         for payload in payloads:
             if has_param(url):
@@ -138,3 +141,4 @@ if __name__ == "__main__":
                 urls.append(url.replace("\n",""))
             
     asyncio.get_event_loop().run_until_complete(main(urls,c))
+
