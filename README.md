@@ -8,7 +8,7 @@ Executes some basic prototype pollution payloads and checks if the site is vulne
 
 *** I will implement multiple concurrency and detailed scan soon. ***
 
-For now just use for multiple concurrency
+You can use the commands below for multiple concurrency for now
 ```
 cat urls.txt | xargs -I% -P 50 sh -c 'python3 ppchecker.py -u "%"'
 
