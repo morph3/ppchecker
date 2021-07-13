@@ -1,5 +1,4 @@
 import asyncio
-from asyncio.locks import Lock
 from urllib import parse
 from pyppeteer import launch
 import pyppeteer
@@ -10,13 +9,14 @@ import random
 from urllib import parse
 import argparse
 
+
 init() 
 GREEN   = Fore.GREEN
 RED     = Fore.RED
 RESET   = Fore.RESET
 BLUE    = Fore.BLUE
 YELLOW  = Fore.YELLOW
-MAGENTA  = Fore.MAGENTA
+MAGENTA = Fore.MAGENTA
 
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36" # Why not
 
@@ -57,58 +57,74 @@ def qs_replace(url, val):
 async def close_dialog(dialog):
     sys.stdout.write(f"{MAGENTA}[!] A dialog received: \"{dialog.message}\" {RESET}\n")
     await dialog.dismiss()
-    
+    return
 
-async def do_req(page, url, payload):
-    prop = rand_str(10)
-    val = rand_str(10)
+async def do_req(browser, url, payload, semaphore):
+    async with semaphore:
+        prop = rand_str(10)
+        val = rand_str(10)
 
-    payload = payload.replace("property",prop)
-    payload = payload.replace("value",val)
+        payload = payload.replace("property",prop)
+        payload = payload.replace("value",val)
 
-    if has_param(url) and ("*" in url):
-        url = url.replace("*",payload)
-    elif has_param(url):
-        url = qs_replace(url,payload)
-        url = url + "&" + payload
-    else:
-        url += payload
+        if has_param(url) and ("*" in url):
+            url = url.replace("*",payload)
+        elif has_param(url):
+            url = qs_replace(url,payload)
+            url = url + "&" + payload
+        else:
+            url += payload
 
-    try:
-        await page.goto(url)
-        pollution = await page.evaluate(prop)
-        if pollution == val:
-            sys.stdout.write(f"{GREEN}[*] Vulnerable, {url} \n{RESET}")    
-
-    except pyppeteer.errors.ElementHandleError:
-        sys.stdout.write(f"{RED}[!] Not vulnerable, {url} \n{RESET}")    
-    except:
-        sys.stdout.write(f"{RED}[!] Something went wrong when performing, {url} \n{RESET}")    
+        try:
 
 
+            new_tab = await browser.newPage()
+            new_tab.on('dialog', lambda dialog: asyncio.ensure_future(close_dialog(dialog)))
+            await new_tab.setUserAgent(user_agent); # not needed but why not
 
-async def main(urls,c):
+
+            await new_tab.goto(url)
+            # open new tab so we can achieve concurrency completely
+
+            pollution = await new_tab.evaluate(prop)
+
+
+
+            if pollution == val:
+                sys.stdout.write(f"{GREEN}[*] Vulnerable, {url} \n{RESET}")    
+
+
+        except pyppeteer.errors.ElementHandleError:
+            sys.stdout.write(f"{RED}[!] Not vulnerable, {url} \n{RESET}")    
+        except:
+            sys.stdout.write(f"{RED}[!] Something went wrong when performing, {url} \n{RESET}")    
+
+    return
+
+
+async def main(urls,c,debug):
+    semaphore= asyncio.Semaphore(c)
     tasks = []
+
+    # one browser multiple tags
     browser = await launch({
         "ignoreHTTPSErrors": True,
         "args": ["--ignore-certificate-errors"],
-        "headless" : True
-}
-)
-    page = await browser.newPage()
-    page.on('dialog', lambda dialog: asyncio.ensure_future(close_dialog(dialog)))
-    await page.setUserAgent(user_agent); # not needed but why not
+        "headless" : not debug
+    })
+
+
     for url in urls:
         for payload in payloads:
             if has_param(url):
-                await do_req(page,url,payload)
+                tasks.append(do_req(browser,url,payload,semaphore))
             else:
                 # it looks ugly but idc
                 for i in ["?","#"]:
-                    await do_req(page,url+i,payload)
+                    tasks.append(do_req(browser,url+i,payload,semaphore))
     
+    await asyncio.wait(tasks)
     await browser.close()
-
 
 
 
@@ -117,7 +133,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--list", dest="list",help="List of urls")
     parser.add_argument("-u", "--url", dest="url",help="Single url")
-    parser.add_argument("-c", "--concurrency", dest="concurrency",type=int,help="Concurrency", default=20)
+    parser.add_argument("-c", "--concurrency", dest="concurrency",type=int,help="Concurrency", default=10)
+    parser.add_argument("-d", "--debug", dest="debug", help="Starts chrome without being headless", action="store_true", default=False)
 
     
     args = parser.parse_args()
@@ -140,5 +157,5 @@ if __name__ == "__main__":
             for url in sys.stdin:
                 urls.append(url.replace("\n",""))
             
-    asyncio.get_event_loop().run_until_complete(main(urls,c))
+    asyncio.get_event_loop().run_until_complete(main(urls,c, args.debug))
 

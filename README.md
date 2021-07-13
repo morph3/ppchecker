@@ -4,23 +4,15 @@ Simple Prototype Pollution Checker tool.
 Executes some basic prototype pollution payloads and checks if the site is vulnerable to prototype pollution. You can also feed urls with parameter and check if the parameters are vulnerable as well.
 
 
-## Usage
+# Example Run
 
-*** I will implement multiple concurrency and detailed scan soon. ***
+[![asciicast](https://asciinema.org/a/425330.svg)](https://asciinema.org/a/425330)
 
-You can use the commands below for multiple concurrency for now
-```
-cat urls.txt | xargs -I% -P 50 sh -c 'python3 ppchecker.py -u "%"'
+## Example Usages
 
 ```
-or 
-```
-cat urls.txt | parallel -j 50 python3 ppchecker.py -u
-```
-
-
-For single url,
-
-```
-python3 ppchecker.py -u 'https://morph3sec.com/index.html?foo='
+python3 ppchecker.py -l urls.txt -c 30
+python3 ppchecker.py -l urls.txt -c 20 -d 
+python3 ppchecker.py -u http://ctf.m3.wtf/pplab3.html -c 20
+python3 ppchecker.py -u 'https://morph3sec.com/index.html?foo=' -c 20
 ```
