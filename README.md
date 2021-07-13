@@ -3,7 +3,7 @@ Simple Prototype Pollution Checker tool.
 
 Executes some basic prototype pollution payloads and checks if the site is vulnerable to prototype pollution. You can also feed urls with parameter and check if the parameters are vulnerable as well.
 
-Everytime this script runs, it starts a browser with puppeter. With the given currency, it starts opening new tabs with the urls. After the prototype pollution check is finished, it terminates the tab. This approach is not very good on big wordlists as tabs might hang, they may not be reachable. It may lead to extereme amounts of tabs opened and therefore a crash. So if you want to feed this tool a big wordlist please take a look at [Additional](https://github.com/morph3/ppchecker/blob/main/README.md#additional) section 
+Everytime this script runs, it starts a browser with puppeter. It starts opening new tabs with urls with the limit of the given concurrency. After the prototype pollution check is completed, tab gets terminated. This approach is not very good on big wordlists as tabs may have issues when loading. Extereme amounts of tabs being opened might occur and therefore a crash might happen. So if you want to feed this tool a big wordlist please take a look at [Additional](https://github.com/morph3/ppchecker/blob/main/README.md#additional) section. Also reachable urls are prefered because of the reason I explained.
 
 # Example Run
 
