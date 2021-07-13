@@ -75,8 +75,8 @@ async def do_req(browser, url, payload, semaphore):
         else:
             url += payload
 
+        new_tab = None # scope thing
         try:
-
 
             new_tab = await browser.newPage()
             new_tab.on('dialog', lambda dialog: asyncio.ensure_future(close_dialog(dialog)))
@@ -93,12 +93,15 @@ async def do_req(browser, url, payload, semaphore):
             if pollution == val:
                 sys.stdout.write(f"{GREEN}[*] Vulnerable, {url} \n{RESET}")    
 
+            await new_tab.close()
 
         except pyppeteer.errors.ElementHandleError:
             sys.stdout.write(f"{RED}[!] Not vulnerable, {url} \n{RESET}")    
+            await new_tab.close()
+
         except:
             sys.stdout.write(f"{RED}[!] Something went wrong when performing, {url} \n{RESET}")    
-
+            await new_tab.close()
     return
 
 
