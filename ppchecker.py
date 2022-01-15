@@ -8,6 +8,7 @@ import string
 import random
 from urllib import parse
 import argparse
+import time
 
 
 init() 
@@ -53,6 +54,10 @@ def qs_replace(url, val):
     return root + "?" + qs[:-1]
 
 
+prop = rand_str(10)
+val = rand_str(10)
+
+args = None
 
 async def close_dialog(dialog):
     sys.stdout.write(f"{MAGENTA}[!] A dialog received: \"{dialog.message}\" {RESET}\n")
@@ -61,14 +66,12 @@ async def close_dialog(dialog):
 
 async def do_req(browser, url, payload, semaphore):
     async with semaphore:
-        prop = rand_str(10)
-        val = rand_str(10)
 
         payload = payload.replace("property",prop)
         payload = payload.replace("value",val)
 
-        if has_param(url) and ("*" in url):
-            url = url.replace("*",payload)
+        if has_param(url) and (args.keyword in url):
+            url = url.replace(args.keyword,payload)
         elif has_param(url):
             url = qs_replace(url,payload)
             url = url + "&" + payload
@@ -82,14 +85,12 @@ async def do_req(browser, url, payload, semaphore):
             new_tab.on('dialog', lambda dialog: asyncio.ensure_future(close_dialog(dialog)))
             await new_tab.setUserAgent(user_agent); # not needed but why not
 
-
-            await new_tab.goto(url)
+            # when there are no more than 0 network connections for at least 500 ms
+            await new_tab.goto(url, {'waitUntil': 'networkidle0'})
             # open new tab so we can achieve concurrency completely
 
+
             pollution = await new_tab.evaluate(prop)
-
-
-
             if pollution == val:
                 sys.stdout.write(f"{GREEN}[*] Vulnerable, {url} \n{RESET}")    
 
@@ -105,15 +106,15 @@ async def do_req(browser, url, payload, semaphore):
     return
 
 
-async def main(urls,c,debug):
-    semaphore= asyncio.Semaphore(c)
+async def main(urls):
+    semaphore= asyncio.Semaphore(args.concurrency)
     tasks = []
 
     # one browser multiple tags
     browser = await launch({
         "ignoreHTTPSErrors": True,
         "args": ["--ignore-certificate-errors"],
-        "headless" : not debug
+        "headless" : not args.debug
     })
 
 
@@ -127,6 +128,7 @@ async def main(urls,c,debug):
                     tasks.append(do_req(browser,url+i,payload,semaphore))
     
     await asyncio.wait(tasks)
+    #time.sleep(10000)
     await browser.close()
 
 
@@ -138,14 +140,15 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--url", dest="url",help="Single url")
     parser.add_argument("-c", "--concurrency", dest="concurrency",type=int,help="Concurrency", default=10)
     parser.add_argument("-d", "--debug", dest="debug", help="Starts chrome without being headless", action="store_true", default=False)
-
+    parser.add_argument("-f", "--fuzz-keyword", dest="keyword", help="Fuzzes the keyword", default="FUZZ")
     
+
+
     args = parser.parse_args()
     if (len(sys.argv) < 2) and (sys.stdin.isatty() == True):
         parser.print_usage()
         sys.exit(0)
     
-    c = args.concurrency
 
     urls = []
     if args.url:
@@ -160,5 +163,5 @@ if __name__ == "__main__":
             for url in sys.stdin:
                 urls.append(url.replace("\n",""))
             
-    asyncio.get_event_loop().run_until_complete(main(urls,c, args.debug))
+    asyncio.get_event_loop().run_until_complete(main(urls))
 
