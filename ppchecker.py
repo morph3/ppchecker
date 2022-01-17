@@ -151,6 +151,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--debug", dest="debug", help="Starts chrome without being headless", action="store_true", default=False)
     parser.add_argument("-f", "--fuzz-keyword", dest="keyword", help="Fuzzes the keyword, ex: -f BUZZ", default="FUZZ")
     parser.add_argument("-o", "--output", dest="output", help="Output file, ex: -o foo.txt")
+    parser.add_argument("-p", "--pipe", dest="pipe", help="Run the program with pipe mode, it checks the given urls in stdin", action="store_true", default=False)
 
 
     args = parser.parse_args()
@@ -164,12 +165,15 @@ if __name__ == "__main__":
         # single url is supplied
         urls.append(args.url)
     else:
-        if sys.stdin.isatty():
-            f = open(args.list,"r")
-            for url in f:
+        # there are multiple urls
+        if args.pipe:
+            # if there is a pipe, read from stdin
+            for url in sys.stdin:
                 urls.append(url.replace("\n",""))
         else:
-            for url in sys.stdin:
+            # read from file
+            f = open(args.list,"r")
+            for url in f:
                 urls.append(url.replace("\n",""))
             
     asyncio.get_event_loop().run_until_complete(main(urls))
